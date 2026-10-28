@@ -1482,6 +1482,11 @@ MonoBehaviour:
   runSpeed: 12
   turnSpeed: 15
   idleYRotation: 180
+  timeToStartFastRun: 1.5
+  fastRunStartSpeed: 14
+  maxFastRunSpeed: 20
+  timeToMaxFastSpeed: 3
+  speedReserveDrainTime: 2
   jumpForce: 15
   groundMask:
     serializedVersion: 2
@@ -1564,14 +1569,32 @@ TrailRenderer:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0.03605652
-        value: 0.17021179
+        time: 0.043266296
+        value: 0.3457489
         inSlope: 0
         outSlope: 0
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
+      - serializedVersion: 3
+        time: 0.2955722
+        value: 0.23730609
+        inSlope: 1.1942221
+        outSlope: 1.1942221
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0.38349003
+      - serializedVersion: 3
+        time: 0.6409129
+        value: 0.22946788
+        inSlope: 1.2609506
+        outSlope: 1.2609506
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0.26634058
       - serializedVersion: 3
         time: 0.99279785
         value: 0.14894104
@@ -1796,7 +1819,7 @@ Transform:
   m_GameObject: {fileID: 1051611633}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.9999862, z: -0, w: -0.0052570137}
-  m_LocalPosition: {x: 90.56, y: 25.92, z: -9.23}
+  m_LocalPosition: {x: 90.6, y: 26.21, z: -9.29}
   m_LocalScale: {x: 1.0354, y: 29.01379, z: 7.4748096}
   m_ConstrainProportionsScale: 0
   m_Children: []
