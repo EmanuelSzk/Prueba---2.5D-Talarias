@@ -30,6 +30,11 @@ public class PlayerMove25D : MonoBehaviour
     private int lastRunDirection;
     private bool isFastRunning;
 
+    // Datos públicos para que el HUD pueda leer el sistema de velocidad.
+    public float SpeedReserve => speedReserve;
+    public bool IsFastRunning => isFastRunning;
+    public float SpeedReserveSeconds => speedReserve * speedReserveDrainTime;
+
     [Header("Salto")]
     [SerializeField] private float jumpForce = 8f;
     [SerializeField] private LayerMask groundMask;
