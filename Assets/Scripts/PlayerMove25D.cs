@@ -42,6 +42,20 @@ public class PlayerMove25D : MonoBehaviour
     [SerializeField] private float fallMultiplier = 2.5f;
     [SerializeField] private float airSpeedMultiplier = 0.6f;
 
+    [Header("Terreno irregular")]
+    [Tooltip("Ángulo máximo de pendiente que se considera suelo.")]
+    [SerializeField] private float maxSlopeAngle = 55f;
+
+    [Tooltip("Radio de la esfera usada para detectar el suelo.")]
+    [SerializeField] private float groundCheckRadius = 0.25f;
+
+    [Tooltip("Segundos de gracia para la animación antes de pasar a caída.")]
+    [SerializeField] private float animGroundGrace = 0.15f;
+
+    private Vector3 groundNormal = Vector3.up;
+    private float lastGroundedTime;
+    private float groundIgnoreUntil;
+
     [Header("Wall Slide")]
     [SerializeField] private Transform wallCheck;
     [SerializeField] private LayerMask wallLayer;
@@ -100,13 +114,8 @@ public class PlayerMove25D : MonoBehaviour
         if (Input.GetButtonDown("Dash"))
             dashPressed = true;
 
-        // Comprobar si el personaje está en el suelo.
-        isGrounded = Physics.Raycast(
-            transform.position + Vector3.up * 0.1f,
-            Vector3.down,
-            groundCheckDistance,
-            groundMask
-        );
+        // Comprobar si el personaje está en el suelo (soporta pendientes).
+        CheckGround();
 
         // Recuperar los saltos y el dash al aterrizar.
         if (isGrounded && !wasGrounded)
@@ -145,10 +154,16 @@ public class PlayerMove25D : MonoBehaviour
 
         if (animator != null)
         {
+            // Suelo "con gracia" para la animación: evita pasar a caída
+            // por pequeños despegues en terreno irregular.
+            bool animGrounded = isGrounded ||
+                (Time.time - lastGroundedTime < animGroundGrace &&
+                 rb.linearVelocity.y <= 0.1f);
+
             animator.SetBool("isDashing", isDashing);
             animator.SetBool("IsRunning", input != 0f);
-            animator.SetBool("IsGrounded", isGrounded);
-            animator.SetFloat("VerticalSpeed", rb.linearVelocity.y);
+            animator.SetBool("IsGrounded", animGrounded);
+            animator.SetFloat("VerticalSpeed", animGrounded ? 0f : rb.linearVelocity.y);
             animator.SetBool("IsFastRunning", isFastRunning);
         }
 
@@ -221,6 +236,11 @@ public class PlayerMove25D : MonoBehaviour
 
             jumpsRemaining--;
 
+            // Dejar de considerar el suelo un momento para que el
+            // movimiento horizontal no pise la velocidad vertical del salto.
+            isGrounded = false;
+            groundIgnoreUntil = Time.time + 0.1f;
+
             // Activar el trail solamente en el doble salto.
             if (jumpsRemaining == 0 && trailRenderer != null)
             {
@@ -252,15 +272,26 @@ public class PlayerMove25D : MonoBehaviour
             if (!isGrounded)
                 movementSpeed *= airSpeedMultiplier;
 
-            rb.linearVelocity = new Vector3(
-                input * movementSpeed,
-                rb.linearVelocity.y,
-                0f
-            );
+            Vector3 desired = new Vector3(input * movementSpeed, 0f, 0f);
+
+            if (isGrounded)
+            {
+                // Proyectar la velocidad sobre la superficie:
+                // sube y baja pegado al terreno.
+                rb.linearVelocity = Vector3.ProjectOnPlane(desired, groundNormal);
+            }
+            else
+            {
+                rb.linearVelocity = new Vector3(
+                    desired.x,
+                    rb.linearVelocity.y,
+                    0f
+                );
+            }
         }
 
-        // Gravedad adicional durante la caída.
-        if (rb.linearVelocity.y < 0f && !isWallSliding)
+        // Gravedad adicional durante la caída (solo en el aire).
+        if (rb.linearVelocity.y < 0f && !isWallSliding && !isGrounded)
         {
             rb.linearVelocity += Vector3.up
                 * Physics.gravity.y
@@ -270,9 +301,46 @@ public class PlayerMove25D : MonoBehaviour
 
         if (animator != null)
         {
+            bool animGrounded = isGrounded ||
+                (Time.time - lastGroundedTime < animGroundGrace &&
+                 rb.linearVelocity.y <= 0.1f);
+
             animator.SetBool("isWallSliding", isWallSliding);
-            animator.SetFloat("VerticalSpeed", rb.linearVelocity.y);
+            animator.SetFloat("VerticalSpeed", animGrounded ? 0f : rb.linearVelocity.y);
             animator.SetBool("IsFastRunning", isFastRunning);
+        }
+    }
+
+    private void CheckGround()
+    {
+        // Justo después de saltar, no detectar suelo (evita recargar saltos).
+        if (Time.time < groundIgnoreUntil)
+        {
+            isGrounded = false;
+            return;
+        }
+
+        Vector3 origin = transform.position + Vector3.up * 0.5f;
+        float distance = 0.5f + groundCheckDistance;
+
+        isGrounded = false;
+        groundNormal = Vector3.up;
+
+        if (Physics.SphereCast(
+                origin,
+                groundCheckRadius,
+                Vector3.down,
+                out RaycastHit hit,
+                distance,
+                groundMask,
+                QueryTriggerInteraction.Ignore))
+        {
+            if (Vector3.Angle(hit.normal, Vector3.up) <= maxSlopeAngle)
+            {
+                isGrounded = true;
+                groundNormal = hit.normal;
+                lastGroundedTime = Time.time;
+            }
         }
     }
 
@@ -421,6 +489,9 @@ public class PlayerMove25D : MonoBehaviour
 
         wallJumpingCounter = 0f;
         jumpsRemaining = 1;
+
+        // No detectar suelo un instante tras el impulso.
+        groundIgnoreUntil = Time.time + 0.1f;
 
         // Girar hacia el sentido del impulso.
         float targetY = wallJumpingDirection > 0f ? 90f : -90f;
